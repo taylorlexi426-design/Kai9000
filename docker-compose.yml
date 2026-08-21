@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: kai9000-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-kai9000_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-kai9000_password_change_this}
+      POSTGRES_DB: ${DB_NAME:-kai9000}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kai9000-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-kai9000_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: kai9000-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - kai9000-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kai9000-backend
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - BACKEND_PORT=${BACKEND_PORT:-5000}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "5000:${BACKEND_PORT:-5000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - kai9000-network
+    command: npm run dev
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: kai9000-frontend
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:5000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - kai9000-network
+    command: npm start
+
+  # AI/ML Service
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: kai9000-ai-service
+    environment:
+      - PYTHON_ENV=${PYTHON_ENV:-development}
+      - AI_SERVICE_PORT=${AI_SERVICE_PORT:-8000}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+    ports:
+      - "8000:${AI_SERVICE_PORT:-8000}"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./ai-service:/app
+    networks:
+      - kai9000-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+networks:
+  kai9000-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
