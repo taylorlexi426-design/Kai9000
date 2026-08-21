@@ -1,0 +1,23 @@
+{
+  "name": "kai9000-ai-service",
+  "version": "1.0.0",
+  "description": "Kai9000 AI Service",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "keywords": ["ai", "nlp", "ml"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-cors": "^0.0.6",
+    "winston": "^3.8.2",
+    "dotenv": "^16.0.3",
+    "axios": "^1.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
