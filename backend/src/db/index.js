@@ -5,7 +5,10 @@ const path = require('path');
 const sequelize = new Sequelize({
   dialect: 'sqlite',
   storage: path.join(__dirname, 'kai9000.db'),
-  logging: (msg) => logger.debug(msg),
+  logging: false,
+  dialectOptions: {
+    timeout: 20000,
+  },
 });
 
 const db = {
