@@ -1,25 +1,29 @@
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const logger = require('../utils/logger');
 
 const EXEC_TIMEOUT = 5000;
 
 /**
- * Runs a termux-api shell command.
+ * Runs a termux-api binary with the given arguments.
+ * Uses execFile (not exec) with an argument array so user-provided values are
+ * never interpreted by a shell, eliminating command/argument injection.
  * When termux-api tooling isn't available (e.g. running on a normal Linux/CI
  * machine instead of Android/Termux) the command is "simulated" so the rest
  * of the application keeps working end-to-end.
  */
-function runCommand(cmd) {
+function runCommand(command, args = []) {
   return new Promise((resolve) => {
-    exec(cmd, { timeout: EXEC_TIMEOUT }, (error, stdout, stderr) => {
+    execFile(command, args, { timeout: EXEC_TIMEOUT }, (error, stdout, stderr) => {
       if (error) {
-        const notInstalled = error.code === 127 || /not found|ENOENT/i.test(String(error.message));
-        logger.warn(`termux command failed (${cmd}): ${error.message}`);
+        const commandMissing = error.code === 'ENOENT' || error.code === 127;
+        logger.warn(`termux command failed (${command}): ${error.message}`);
         resolve({
-          success: notInstalled, // treat "command not found" as a simulated success
+          // When the termux-api binary simply isn't installed, treat the
+          // call as a simulated success so the rest of the app keeps working.
+          success: commandMissing,
           simulated: true,
           raw: null,
-          error: notInstalled ? undefined : (stderr || error.message),
+          error: commandMissing ? undefined : (stderr || error.message),
         });
         return;
       }
@@ -37,34 +41,56 @@ function runCommand(cmd) {
   });
 }
 
-async function screenOn() {
+// NOTE: Termux:API does not expose direct screen power control. These use
+// termux-wake-lock/termux-wake-unlock to acquire/release a CPU+screen wake
+// lock, which is the closest equivalent available without root and is what
+// the "screen on/off" chat commands map to.
+async function acquireWakeLock() {
   return runCommand('termux-wake-lock');
 }
 
-async function screenOff() {
+async function releaseWakeLock() {
   return runCommand('termux-wake-unlock');
 }
 
 async function setBrightness(level) {
   const value = Math.max(0, Math.min(255, parseInt(level, 10) || 0));
-  return runCommand(`termux-brightness ${value}`);
+  return runCommand('termux-brightness', [String(value)]);
 }
 
 async function setVolume(stream, level) {
   const validStreams = ['music', 'ring', 'alarm', 'notification', 'system', 'call'];
   const streamName = validStreams.includes(stream) ? stream : 'music';
   const value = Math.max(0, Math.min(15, parseInt(level, 10) || 0));
-  return runCommand(`termux-volume ${streamName} ${value}`);
+  return runCommand('termux-volume', [streamName, String(value)]);
 }
 
 async function openApp(nameOrPackage) {
-  const safeArg = String(nameOrPackage || '').replace(/[^a-zA-Z0-9_.\- ]/g, '');
-  return runCommand(`am start -a android.intent.action.MAIN -c android.intent.action.LAUNCHER -n ${safeArg}`);
+  const safeArg = String(nameOrPackage || '').replace(/[^a-zA-Z0-9_./-]/g, '');
+  if (!safeArg) {
+    return { success: false, simulated: false, raw: null, error: 'No valid app name/package provided' };
+  }
+  return runCommand('am', [
+    'start',
+    '-a', 'android.intent.action.MAIN',
+    '-c', 'android.intent.action.LAUNCHER',
+    '-n', safeArg,
+  ]);
 }
 
+const ALLOWED_URL_SCHEMES = ['http:', 'https:'];
+
 async function openUrl(url) {
-  const safeUrl = String(url || '').replace(/[^a-zA-Z0-9_.\-:/?=&%]/g, '');
-  return runCommand(`termux-open-url "${safeUrl}"`);
+  let parsed;
+  try {
+    parsed = new URL(String(url || ''));
+  } catch (err) {
+    return { success: false, simulated: false, raw: null, error: 'Invalid URL' };
+  }
+  if (!ALLOWED_URL_SCHEMES.includes(parsed.protocol)) {
+    return { success: false, simulated: false, raw: null, error: `Unsupported URL scheme: ${parsed.protocol}` };
+  }
+  return runCommand('termux-open-url', [parsed.toString()]);
 }
 
 async function listNotifications() {
@@ -72,14 +98,14 @@ async function listNotifications() {
 }
 
 async function sendNotification(title, content) {
-  const safeTitle = String(title || 'Kai9000').replace(/["'`\\]/g, '');
-  const safeContent = String(content || '').replace(/["'`\\]/g, '');
-  return runCommand(`termux-notification -t "${safeTitle}" -c "${safeContent}"`);
+  const safeTitle = String(title || 'Kai9000');
+  const safeContent = String(content || '');
+  return runCommand('termux-notification', ['-t', safeTitle, '-c', safeContent]);
 }
 
 async function listFiles(dirPath) {
-  const safePath = String(dirPath || '~').replace(/[^a-zA-Z0-9_.\-/~ ]/g, '');
-  return runCommand(`ls -la ${safePath}`);
+  const safePath = String(dirPath || '~');
+  return runCommand('ls', ['-la', safePath]);
 }
 
 async function getBatteryStatus() {
@@ -108,7 +134,7 @@ async function getDeviceInfo() {
 async function executeCommand(action, params = {}) {
   switch (action) {
     case 'screen':
-      return params.state === 'off' ? screenOff() : screenOn();
+      return params.state === 'off' ? releaseWakeLock() : acquireWakeLock();
     case 'brightness':
       return setBrightness(params.level);
     case 'volume':
@@ -132,8 +158,8 @@ async function executeCommand(action, params = {}) {
 
 module.exports = {
   runCommand,
-  screenOn,
-  screenOff,
+  acquireWakeLock,
+  releaseWakeLock,
   setBrightness,
   setVolume,
   openApp,

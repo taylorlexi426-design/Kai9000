@@ -10,8 +10,8 @@ const CHAT_RESPONSES = [
   "I'm Kai9000, your device assistant. Ask me to control your screen, volume, apps or notifications!",
 ];
 
-function fallbackReply(message) {
-  const index = message.length % CHAT_RESPONSES.length;
+function fallbackReply() {
+  const index = Math.floor(Math.random() * CHAT_RESPONSES.length);
   return CHAT_RESPONSES[index];
 }
 
@@ -40,7 +40,7 @@ exports.sendMessage = async (req, res) => {
         result.success ? 'Done!' : `Something went wrong: ${result.error || 'unknown error'}`
       }`;
     } else {
-      reply = fallbackReply(message);
+      reply = fallbackReply();
     }
 
     const aiEntry = await db.Message.create({

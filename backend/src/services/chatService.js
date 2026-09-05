@@ -12,6 +12,30 @@ const APP_NAME_MAP = {
   gallery: 'com.android.gallery3d/.app.GalleryActivity',
 };
 
+function extractNumberAfter(text, keyword) {
+  const idx = text.indexOf(keyword);
+  if (idx === -1) return null;
+  const rest = text.slice(idx + keyword.length);
+  const digitsMatch = rest.match(/\d+/);
+  return digitsMatch ? parseInt(digitsMatch[0], 10) : null;
+}
+
+function stripEdgeQuotes(value) {
+  let start = 0;
+  let end = value.length;
+  while (start < end && (value[start] === '"' || value[start] === "'")) start += 1;
+  while (end > start && (value[end - 1] === '"' || value[end - 1] === "'")) end -= 1;
+  return value.slice(start, end);
+}
+
+function stripLeadingFillerWords(value) {
+  let result = value;
+  while (result.startsWith('the ') || result.startsWith('app ')) {
+    result = result.slice(4);
+  }
+  return result;
+}
+
 function parseIntent(message) {
   const text = String(message || '').trim().toLowerCase();
 
@@ -27,22 +51,22 @@ function parseIntent(message) {
     return { intent: 'device_command', action: 'screen', params: { state: 'off' } };
   }
 
-  const brightnessMatch = text.match(/brightness\s*(?:to|=)?\s*(\d+)/);
-  if (brightnessMatch) {
-    return {
-      intent: 'device_command',
-      action: 'brightness',
-      params: { level: parseInt(brightnessMatch[1], 10) },
-    };
+  if (text.includes('brightness')) {
+    const level = extractNumberAfter(text, 'brightness');
+    if (level !== null) {
+      return { intent: 'device_command', action: 'brightness', params: { level } };
+    }
   }
 
-  const volumeMatch = text.match(/volume\s*(?:to|=)?\s*(\d+)/);
-  if (volumeMatch) {
-    return {
-      intent: 'device_command',
-      action: 'volume',
-      params: { stream: 'music', level: parseInt(volumeMatch[1], 10) },
-    };
+  if (text.includes('volume')) {
+    const level = extractNumberAfter(text, 'volume');
+    if (level !== null) {
+      return {
+        intent: 'device_command',
+        action: 'volume',
+        params: { stream: 'music', level },
+      };
+    }
   }
   if (/volume up|increase volume|louder/.test(text)) {
     return { intent: 'device_command', action: 'volume', params: { stream: 'music', level: 15 } };
@@ -51,9 +75,8 @@ function parseIntent(message) {
     return { intent: 'device_command', action: 'volume', params: { stream: 'music', level: 0 } };
   }
 
-  const openMatch = text.match(/open (?:the )?(?:app )?["']?([a-z0-9 _.\-]+?)["']?$/);
-  if (openMatch) {
-    const appName = openMatch[1].trim();
+  if (text.startsWith('open ')) {
+    const appName = stripEdgeQuotes(stripLeadingFillerWords(text.slice(5).trim())).trim();
     return {
       intent: 'device_command',
       action: 'app',
