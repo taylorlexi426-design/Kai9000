@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kai9000 - AI Device Assistant</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>🤖 Kai9000</h1>
+    <p>Your Android device assistant</p>
+  </header>
+
+  <main class="app-main">
+    <section class="panel chat-panel">
+      <h2>Chat</h2>
+      <div id="chat-log" class="chat-log"></div>
+      <form id="chat-form" class="chat-form">
+        <input
+          id="chat-input"
+          type="text"
+          placeholder='Try "turn on screen" or "open settings"'
+          autocomplete="off"
+          required
+        />
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
+    <section class="panel status-panel">
+      <h2>Device Status</h2>
+      <button id="refresh-status">Refresh</button>
+      <pre id="device-status" class="status-box">Loading…</pre>
+    </section>
+
+    <section class="panel history-panel">
+      <h2>Command History</h2>
+      <button id="refresh-history">Refresh</button>
+      <ul id="command-history" class="history-list"></ul>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
