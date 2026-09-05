@@ -44,6 +44,10 @@ exports.runCommand = async (req, res) => {
       return res.status(400).json({ error: 'action is required' });
     }
 
+    if (params !== undefined && (typeof params !== 'object' || params === null || Array.isArray(params))) {
+      return res.status(400).json({ error: 'params must be an object' });
+    }
+
     const result = await deviceService.executeCommand(action, params || {});
     const entry = await logCommand(action, params || {}, result);
 

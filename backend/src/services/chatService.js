@@ -28,10 +28,20 @@ function stripEdgeQuotes(value) {
   return value.slice(start, end);
 }
 
+const FILLER_WORDS = ['the ', 'app '];
+
 function stripLeadingFillerWords(value) {
   let result = value;
-  while (result.startsWith('the ') || result.startsWith('app ')) {
-    result = result.slice(4);
+  let matched = true;
+  while (matched) {
+    matched = false;
+    for (const filler of FILLER_WORDS) {
+      if (result.startsWith(filler)) {
+        result = result.slice(filler.length);
+        matched = true;
+        break;
+      }
+    }
   }
   return result;
 }

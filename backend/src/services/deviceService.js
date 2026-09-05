@@ -1,4 +1,5 @@
 const { execFile } = require('child_process');
+const os = require('os');
 const logger = require('../utils/logger');
 
 const EXEC_TIMEOUT = 5000;
@@ -15,7 +16,9 @@ function runCommand(command, args = []) {
   return new Promise((resolve) => {
     execFile(command, args, { timeout: EXEC_TIMEOUT }, (error, stdout, stderr) => {
       if (error) {
-        const commandMissing = error.code === 'ENOENT' || error.code === 127;
+        // execFile does not use a shell, so a missing binary surfaces as
+        // error.code === 'ENOENT' (not a numeric shell exit code).
+        const commandMissing = error.code === 'ENOENT';
         logger.warn(`termux command failed (${command}): ${error.message}`);
         resolve({
           // When the termux-api binary simply isn't installed, treat the
@@ -104,8 +107,16 @@ async function sendNotification(title, content) {
 }
 
 async function listFiles(dirPath) {
-  const safePath = String(dirPath || '~');
-  return runCommand('ls', ['-la', safePath]);
+  let target = String(dirPath || '~').trim();
+  // execFile doesn't invoke a shell, so '~' isn't expanded automatically.
+  if (target === '~' || target.startsWith('~/')) {
+    target = target.replace(/^~/, os.homedir());
+  }
+  // "--" tells `ls` that everything after it is a positional path argument,
+  // preventing a path starting with "-" from being interpreted as a flag.
+  // Note: this browses the device's own filesystem on behalf of its owner,
+  // so relative traversal (e.g. "..") is intentionally allowed.
+  return runCommand('ls', ['-la', '--', target]);
 }
 
 async function getBatteryStatus() {
