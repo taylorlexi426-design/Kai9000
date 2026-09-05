@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
+const path = require('path');
 const logger = require('./utils/logger');
 const db = require('./db');
 
@@ -22,6 +23,9 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
+// Serve the built-in web frontend
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -39,6 +43,8 @@ app.use('/api/v1/auth', require('./routes/auth'));
 app.use('/api/v1/users', require('./routes/users'));
 app.use('/api/v1/tasks', require('./routes/tasks'));
 app.use('/api/v1/conversations', require('./routes/conversations'));
+app.use('/api/v1/device', require('./routes/device'));
+app.use('/api/v1/chat', require('./routes/chat'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
