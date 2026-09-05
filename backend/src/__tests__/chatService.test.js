@@ -21,7 +21,15 @@ describe('chatService.parseIntent', () => {
     expect(parseIntent('open settings')).toEqual({
       intent: 'device_command',
       action: 'app',
-      params: { name: 'com.android.settings/.Settings' },
+      params: { name: 'com.android.settings/.Settings', resolved: true },
+    });
+  });
+
+  it('marks unresolved apps so the reply can warn the user', () => {
+    expect(parseIntent('open foobar')).toEqual({
+      intent: 'device_command',
+      action: 'app',
+      params: { name: 'foobar', resolved: false },
     });
   });
 

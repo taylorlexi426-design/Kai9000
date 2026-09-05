@@ -29,6 +29,20 @@ describe('Device routes', () => {
     expect(res.body).toHaveProperty('error');
   });
 
+  it('POST /api/v1/device/command rejects an unknown action', async () => {
+    const res = await request(app).post('/api/v1/device/command').send({ action: 'self-destruct' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Unknown device action/);
+  });
+
+  it('POST /api/v1/device/command rejects non-object params', async () => {
+    const res = await request(app)
+      .post('/api/v1/device/command')
+      .send({ action: 'screen', params: 'on' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/params must be an object/);
+  });
+
   it('POST /api/v1/device/command executes a screen command and logs it', async () => {
     const res = await request(app)
       .post('/api/v1/device/command')

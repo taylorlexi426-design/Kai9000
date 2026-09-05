@@ -44,6 +44,10 @@ exports.runCommand = async (req, res) => {
       return res.status(400).json({ error: 'action is required' });
     }
 
+    if (!deviceService.VALID_ACTIONS.includes(action)) {
+      return res.status(400).json({ error: `Unknown device action: ${action}` });
+    }
+
     if (params !== undefined && (typeof params !== 'object' || params === null || Array.isArray(params))) {
       return res.status(400).json({ error: 'params must be an object' });
     }

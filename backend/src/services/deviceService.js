@@ -137,6 +137,8 @@ async function getDeviceInfo() {
   };
 }
 
+const VALID_ACTIONS = ['screen', 'brightness', 'volume', 'app', 'url', 'notification', 'file', 'info'];
+
 /**
  * Executes a structured device command.
  * @param {string} action - one of screen, brightness, volume, app, url, notification, file, info
@@ -168,6 +170,7 @@ async function executeCommand(action, params = {}) {
 }
 
 module.exports = {
+  VALID_ACTIONS,
   runCommand,
   acquireWakeLock,
   releaseWakeLock,

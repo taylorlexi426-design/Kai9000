@@ -87,10 +87,11 @@ function parseIntent(message) {
 
   if (text.startsWith('open ')) {
     const appName = stripEdgeQuotes(stripLeadingFillerWords(text.slice(5).trim())).trim();
+    const resolved = Object.prototype.hasOwnProperty.call(APP_NAME_MAP, appName);
     return {
       intent: 'device_command',
       action: 'app',
-      params: { name: APP_NAME_MAP[appName] || appName },
+      params: { name: resolved ? APP_NAME_MAP[appName] : appName, resolved },
     };
   }
 
@@ -131,7 +132,9 @@ function describeAction(action, params) {
     case 'volume':
       return `Setting ${params.stream} volume to ${params.level}.`;
     case 'app':
-      return `Opening ${params.name}.`;
+      return params.resolved === false
+        ? `I don't recognize "${params.name}" as an app, but I'll try opening it anyway.`
+        : `Opening ${params.name}.`;
     case 'url':
       return `Opening ${params.url}.`;
     case 'notification':
