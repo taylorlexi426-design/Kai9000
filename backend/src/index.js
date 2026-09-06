@@ -6,7 +6,6 @@ const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const path = require('path');
 const logger = require('./utils/logger');
-const db = require('./db');
 
 dotenv.config();
 
@@ -16,7 +15,7 @@ const app = express();
 app.use(helmet());
 app.use(compression());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: process.env.CORS_ORIGIN || '*',
   credentials: true
 }));
 
@@ -64,9 +63,7 @@ const PORT = process.env.BACKEND_PORT || 5000;
 
 async function start() {
   try {
-    // Initialize database
-    await db.sequelize.authenticate();
-    logger.info('Database connected');
+    logger.info('Initializing Kai9000 backend');
 
     app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`);
