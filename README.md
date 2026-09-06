@@ -147,6 +147,35 @@ GET    /api/v1/conversations/:conversationId/messages   # Get messages
 POST   /api/v1/conversations/:conversationId/messages   # Add message
 ```
 
+### Chat (AI assistant)
+```
+POST   /api/v1/chat/message        # Send a chat message, get an AI reply (may trigger a device command)
+GET    /api/v1/chat/history        # Get chat message history
+```
+
+### Device Control (Termux)
+```
+GET    /api/v1/device/status       # Get current device status (battery, wifi, last command)
+GET    /api/v1/device/history      # Get device command history
+POST   /api/v1/device/command      # Run a device command, e.g. { "action": "screen", "params": { "state": "on" } }
+```
+
+## 📱 Device Control & Web UI
+
+Kai9000 ships with a Termux-based device control module
+(`backend/src/services/deviceService.js`) that shells out to
+[`termux-api`](https://wiki.termux.com/wiki/Termux:API) commands to control
+the screen (via `termux-wake-lock`/`termux-wake-unlock`), brightness, volume,
+notifications, apps, and files. When `termux-api` isn't installed (e.g. in a
+regular dev/CI environment) commands are simulated so the rest of the app
+keeps working.
+
+A minimal HTML/CSS/JS web frontend is served directly by the backend from
+`backend/public/`. Once the backend is running, open
+`http://localhost:5000` in a (mobile) browser to chat with Kai9000, view
+device status, and see the command history — no separate frontend build is
+required.
+
 ## 🔧 Environment Variables
 
 ### Backend (.env)
