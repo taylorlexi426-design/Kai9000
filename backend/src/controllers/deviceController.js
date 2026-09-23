@@ -29,7 +29,8 @@ exports.getStatus = async (req, res) => {
 exports.getHistory = async (req, res) => {
   try {
     const history = await db.CommandLog.findAll();
-    res.json(history.slice().reverse());
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 50));
+    res.json(history.slice(-limit).reverse());
   } catch (error) {
     logger.error(error);
     res.status(500).json({ error: error.message });

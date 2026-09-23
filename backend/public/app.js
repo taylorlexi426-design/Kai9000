@@ -5,6 +5,50 @@ const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const deviceStatusEl = document.getElementById('device-status');
 const historyListEl = document.getElementById('command-history');
+let currentStatus = null;
+
+function renderStatus(status) {
+  currentStatus = status;
+  deviceStatusEl.textContent = JSON.stringify(status, null, 2);
+}
+
+function createHistoryEntry(entry) {
+  const li = document.createElement('li');
+  const statusClass = entry.success ? 'success' : 'failure';
+  const statusText = entry.success ? 'OK' : 'FAILED';
+  li.innerHTML = `<span class="${statusClass}">[${statusText}]</span> ${entry.action} — ${entry.createdAt}`;
+  return li;
+}
+
+function prependHistoryEntry(entry) {
+  if (!entry) return;
+  const emptyState = historyListEl.querySelector('li');
+  if (emptyState && emptyState.textContent === 'No commands executed yet.') {
+    historyListEl.innerHTML = '';
+  }
+  historyListEl.prepend(createHistoryEntry(entry));
+}
+
+function applyCommandUpdate(command) {
+  if (!command?.log) return;
+
+  prependHistoryEntry(command.log);
+
+  if (command.action === 'info' && command.raw && typeof command.raw === 'object') {
+    renderStatus({
+      ...command.raw,
+      lastCommand: command.log,
+    });
+    return;
+  }
+
+  if (currentStatus) {
+    renderStatus({
+      ...currentStatus,
+      lastCommand: command.log,
+    });
+  }
+}
 
 function appendMessage(sender, content) {
   const el = document.createElement('div');
@@ -28,8 +72,7 @@ async function sendMessage(message) {
       return;
     }
     appendMessage('ai', data.reply?.content || 'OK');
-    refreshHistory();
-    refreshStatus();
+    applyCommandUpdate(data.command);
   } catch (err) {
     appendMessage('ai', `Network error: ${err.message}`);
   }
@@ -40,7 +83,7 @@ async function refreshStatus() {
   try {
     const res = await fetch(`${API_BASE}/device/status`);
     const data = await res.json();
-    deviceStatusEl.textContent = JSON.stringify(data, null, 2);
+    renderStatus(data);
   } catch (err) {
     deviceStatusEl.textContent = `Failed to load status: ${err.message}`;
   }
@@ -49,7 +92,7 @@ async function refreshStatus() {
 async function refreshHistory() {
   historyListEl.innerHTML = '';
   try {
-    const res = await fetch(`${API_BASE}/device/history`);
+    const res = await fetch(`${API_BASE}/device/history?limit=50`);
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) {
       const li = document.createElement('li');
@@ -58,11 +101,7 @@ async function refreshHistory() {
       return;
     }
     data.forEach((entry) => {
-      const li = document.createElement('li');
-      const statusClass = entry.success ? 'success' : 'failure';
-      const statusText = entry.success ? 'OK' : 'FAILED';
-      li.innerHTML = `<span class="${statusClass}">[${statusText}]</span> ${entry.action} — ${entry.createdAt}`;
-      historyListEl.appendChild(li);
+      historyListEl.appendChild(createHistoryEntry(entry));
     });
   } catch (err) {
     const li = document.createElement('li');

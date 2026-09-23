@@ -23,6 +23,15 @@ describe('Device routes', () => {
     expect(res.body).toHaveProperty('timestamp');
   });
 
+  it('GET /api/v1/device/status reuses a fresh cached status', async () => {
+    const first = await request(app).get('/api/v1/device/status');
+    const second = await request(app).get('/api/v1/device/status');
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(second.body.timestamp).toBe(first.body.timestamp);
+  });
+
   it('POST /api/v1/device/command requires an action', async () => {
     const res = await request(app).post('/api/v1/device/command').send({});
     expect(res.status).toBe(400);
@@ -58,6 +67,19 @@ describe('Device routes', () => {
     expect(history.body.length).toBeGreaterThan(0);
     expect(history.body[0].action).toBe('screen');
   });
+
+  it('GET /api/v1/device/history respects the limit query parameter', async () => {
+    await request(app)
+      .post('/api/v1/device/command')
+      .send({ action: 'screen', params: { state: 'on' } });
+    await request(app)
+      .post('/api/v1/device/command')
+      .send({ action: 'screen', params: { state: 'off' } });
+
+    const res = await request(app).get('/api/v1/device/history?limit=1');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+  });
 });
 
 describe('Chat routes', () => {
@@ -77,6 +99,16 @@ describe('Chat routes', () => {
     expect(res.body.userMessage.content).toBe('turn on screen');
     expect(res.body.reply.sender).toBe('ai');
     expect(res.body.command).toMatchObject({ action: 'screen' });
+  });
+
+  it('POST /api/v1/chat/message treats device status checks as successful commands', async () => {
+    const res = await request(app)
+      .post('/api/v1/chat/message')
+      .send({ message: 'battery status' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.command).toMatchObject({ action: 'info', success: true });
+    expect(res.body.reply.content).toContain('Done!');
   });
 
   it('POST /api/v1/chat/message falls back to chit-chat for unrecognized messages', async () => {
