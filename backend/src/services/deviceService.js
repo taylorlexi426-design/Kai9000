@@ -3,6 +3,9 @@ const os = require('os');
 const logger = require('../utils/logger');
 
 const EXEC_TIMEOUT = 5000;
+const DEVICE_INFO_CACHE_TTL_MS = 5000;
+let cachedDeviceInfo = null;
+let cachedDeviceInfoExpiresAt = 0;
 
 /**
  * Runs a termux-api binary with the given arguments.
@@ -42,6 +45,11 @@ function runCommand(command, args = []) {
       resolve({ success: true, simulated: false, raw: parsed });
     });
   });
+}
+
+function invalidateDeviceInfoCache() {
+  cachedDeviceInfo = null;
+  cachedDeviceInfoExpiresAt = 0;
 }
 
 // NOTE: Termux:API does not expose direct screen power control. These use
@@ -128,13 +136,31 @@ async function getWifiInfo() {
 }
 
 async function getDeviceInfo() {
+  const now = Date.now();
+  if (cachedDeviceInfo && cachedDeviceInfoExpiresAt > now) {
+    return cachedDeviceInfo;
+  }
+
   const [battery, wifi] = await Promise.all([getBatteryStatus(), getWifiInfo()]);
-  return {
+  const timestamp = new Date().toISOString();
+  const info = {
+    success: true,
     battery: battery.raw,
     wifi: wifi.raw,
     simulated: battery.simulated || wifi.simulated,
-    timestamp: new Date().toISOString(),
+    timestamp,
+    raw: {
+      battery: battery.raw,
+      wifi: wifi.raw,
+      simulated: battery.simulated || wifi.simulated,
+      timestamp,
+    },
   };
+
+  cachedDeviceInfo = info;
+  cachedDeviceInfoExpiresAt = now + DEVICE_INFO_CACHE_TTL_MS;
+
+  return info;
 }
 
 const VALID_ACTIONS = ['screen', 'brightness', 'volume', 'app', 'url', 'notification', 'file', 'info'];
@@ -147,20 +173,27 @@ const VALID_ACTIONS = ['screen', 'brightness', 'volume', 'app', 'url', 'notifica
 async function executeCommand(action, params = {}) {
   switch (action) {
     case 'screen':
+      invalidateDeviceInfoCache();
       return params.state === 'off' ? releaseWakeLock() : acquireWakeLock();
     case 'brightness':
+      invalidateDeviceInfoCache();
       return setBrightness(params.level);
     case 'volume':
+      invalidateDeviceInfoCache();
       return setVolume(params.stream, params.level);
     case 'app':
+      invalidateDeviceInfoCache();
       return openApp(params.name);
     case 'url':
+      invalidateDeviceInfoCache();
       return openUrl(params.url);
     case 'notification':
+      invalidateDeviceInfoCache();
       return params.action === 'list'
         ? listNotifications()
         : sendNotification(params.title, params.content);
     case 'file':
+      invalidateDeviceInfoCache();
       return listFiles(params.path);
     case 'info':
       return getDeviceInfo();
@@ -184,5 +217,6 @@ module.exports = {
   getBatteryStatus,
   getWifiInfo,
   getDeviceInfo,
+  invalidateDeviceInfoCache,
   executeCommand,
 };

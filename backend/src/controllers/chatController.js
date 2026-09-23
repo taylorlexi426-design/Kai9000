@@ -63,7 +63,8 @@ exports.sendMessage = async (req, res) => {
 exports.getHistory = async (req, res) => {
   try {
     const messages = await db.Message.findAll();
-    res.json(messages);
+    const limit = Math.max(1, Math.min(200, parseInt(req.query.limit, 10) || 100));
+    res.json(messages.slice(-limit));
   } catch (error) {
     logger.error(error);
     res.status(500).json({ error: error.message });
